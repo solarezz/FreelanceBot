@@ -1,46 +1,45 @@
-import asyncpg
-from typing import Optional
+import psycopg
 
-class Database:
-    def __init__(self, database_url: str):
-        self.database_url = database_url
-        self.pool = None
 
-    async def connect(self):
-        self.pool = await asyncpg.create_pool(self.database_url)
+class DatabaseManager:
+    def __init__(self, db_name='postgres', user='postgres', password='020722', host='localhost', port=5432):
+        self.db_name = db_name
+        self.user = user
+        self.password = password
+        self.host = host
+        self.port = port
+        self.connection = psycopg.connect(
+            dbname=self.db_name,
+            user=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port
+        )
 
-    async def close(self):
-        await self.pool.close()
-
-    async def execute(self, query: str, *args) -> None:
-        async with self.pool.acquire() as connection:
-            await connection.execute(query, *args)
-
-    async def fetch(self, query: str, *args) -> Optional[list]:
-        async with self.pool.acquire() as connection:
-            return await connection.fetch(query, *args)
-
-    # Пример метода для создания таблицы
-    async def create_table(self):
-        await self.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                tgID INTEGER,
-                username VARCHAR,
-                who VARCHAR,
-                active_orders INTEGER[],
-                in_dialog INTEGER
+    def connect(self):
+        try:
+            self.connection = psycopg.connect(
+                dbname=self.db_name,
+                user=self.user,
+                password=self.password,
+                host=self.host,
+                port=self.port
             )
-        ''')
+            print("Подключение к базе данных успешно.")
+        except Exception as e:
+            print(f"Ошибка подключения: {e}")
 
-    # Пример метода для добавления пользователя
-    async def add_user(self, user_id: int, username: str, full_name: str):
-        await self.execute('''
-            INSERT INTO users (tgID, username, full_name) 
-            VALUES ($1, $2, $3) 
-            ON CONFLICT (user_id) DO NOTHING
-        ''', user_id, username, full_name)
+    def add_user(self, tgID: int, username: str):
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute('INSERT INTO users (tgID, username) VALUES (%s, %s) ON CONFLICT (tgID) DO NOTHING',
+                               (tgID,
+                                username))
+                print('Занесен')
+        except Exception as e:
+            print(f'Ошибка: {e}')
 
-    # Пример метода для получения пользователя
-    async def get_user(self, user_id: int):
-        return await self.fetch('SELECT * FROM users WHERE user_id = $1', user_id)
+    def users(self, ):
+        with self.connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM users')
+            print('d: ', cursor.fetchall())
