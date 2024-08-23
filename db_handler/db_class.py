@@ -1,45 +1,45 @@
-import psycopg
+import aiosqlite
 
 
-class DatabaseManager:
-    def __init__(self, db_name='postgres', user='postgres', password='020722', host='localhost', port=5432):
+class Database:
+
+    def __init__(self, db_name='./database.db'):
         self.db_name = db_name
-        self.user = user
-        self.password = password
-        self.host = host
-        self.port = port
-        self.connection = psycopg.connect(
-            dbname=self.db_name,
-            user=self.user,
-            password=self.password,
-            host=self.host,
-            port=self.port
-        )
 
-    def connect(self):
-        try:
-            self.connection = psycopg.connect(
-                dbname=self.db_name,
-                user=self.user,
-                password=self.password,
-                host=self.host,
-                port=self.port
-            )
-            print("Подключение к базе данных успешно.")
-        except Exception as e:
-            print(f"Ошибка подключения: {e}")
+    async def add_user(self, tgID: int, username: str, who: str):
+        async with aiosqlite.connect(self.db_name) as db:
+            await db.execute('INSERT OR IGNORE INTO users (tgID, username, who) VALUES (?, ?, ?)',
+                             (tgID,
+                              username,
+                              who))
+            await db.commit()
 
-    def add_user(self, tgID: int, username: str):
-        try:
-            with self.connection.cursor() as cursor:
-                cursor.execute('INSERT INTO users (tgID, username) VALUES (%s, %s) ON CONFLICT (tgID) DO NOTHING',
-                               (tgID,
-                                username))
-                print('Занесен')
-        except Exception as e:
-            print(f'Ошибка: {e}')
+    async def info(self, tgID: int):
+        async with aiosqlite.connect(self.db_name) as db:
+            async with db.execute('SELECT * FROM users WHERE tgID = ?', (tgID,)) as cur:
+                info = await cur.fetchall()
+                return info
 
-    def users(self, ):
-        with self.connection.cursor() as cursor:
-            cursor.execute('SELECT * FROM users')
-            print('d: ', cursor.fetchall())
+    async def orders(self):
+        async with aiosqlite.connect('database.db') as db:
+            async with db.execute("SELECT id FROM orders WHERE status = 'Ожидание'") as cur:
+                orders = await cur.fetchall()
+                return orders
+
+    async def status(self, order_id):
+        async with aiosqlite.connect('database.db') as db:
+            cursor = await db.execute("SELECT status FROM orders WHERE id = ?", (order_id,))
+            status = await cursor.fetchone()
+            return status
+
+    async def participants(self, order_id):
+        async with aiosqlite.connect('database.db') as db:
+            cursor = await db.execute("SELECT customer, executor FROM orders WHERE id = ?", (order_id,))
+            participants = await cursor.fetchone()
+            return participants
+
+    async def change(self, order_id):
+        async with aiosqlite.connect('database.db') as db:
+            await db.execute("UPDATE orders SET status = 'Начат', dialog_start = 'on' WHERE id = ?",
+                             (order_id,))
+            await db.commit()

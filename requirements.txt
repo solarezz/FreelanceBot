@@ -1,6 +1,4 @@
-asyncpg
+aiosqlite
 aiogram~=3.12.0
 APScheduler~=3.10.4
 python-decouple
-
-aiopg~=1.4.0
